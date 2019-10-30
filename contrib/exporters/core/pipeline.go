@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/spf13/viper"
 
@@ -63,6 +64,11 @@ type Compressor interface {
 	Compress(b []byte) (*bytes.Buffer, error)
 }
 
+// StoreHeader produces the header fields in the flow collection object
+type StoreHeader interface {
+	AddStoreHeader(flows []interface{}, startTime time.Time, endTime time.Time) interface{}
+}
+
 // Storer interface of a store object
 type Storer interface {
 	StoreFlows(flows map[Tag][]interface{}) error
@@ -90,6 +96,7 @@ var (
 	CompressorHandlers  HandlersMap
 	StorerHandlers      HandlersMap
 	WriterHandlers      HandlersMap
+	StoreHeaderHandlers HandlersMap
 )
 
 // Register associates a handler with its' label
@@ -132,6 +139,9 @@ func init() {
 	CompressorHandlers.Register("none", NewCompressNone, true)
 	CompressorHandlers.Register("gzip", NewCompressGzip, false)
 
+	StoreHeaderHandlers = make(HandlersMap)
+	StoreHeaderHandlers.Register("none", NewStoreHeaderNone, true)
+
 	StorerHandlers = make(HandlersMap)
 	StorerHandlers.Register("buffered", NewStoreBuffered, true)
 	StorerHandlers.Register("direct", NewStoreDirect, false)
@@ -153,6 +163,7 @@ type Pipeline struct {
 	Compressor  Compressor
 	Storer      Storer
 	Writer      Writer
+	StoreHeader StoreHeader
 }
 
 // NewPipeline defines the pipeline elements
@@ -187,6 +198,11 @@ func NewPipeline(cfg *viper.Viper) (*Pipeline, error) {
 		return nil, err
 	}
 
+	storeHeader, err := StoreHeaderHandlers.Init(cfg, "storeheader")
+	if err != nil {
+		return nil, err
+	}
+
 	storer, err := StorerHandlers.Init(cfg, "store")
 	if err != nil {
 		return nil, err
@@ -206,6 +222,7 @@ func NewPipeline(cfg *viper.Viper) (*Pipeline, error) {
 		Compressor:  compressor.(Compressor),
 		Storer:      storer.(Storer),
 		Writer:      writer.(Writer),
+		StoreHeader: storeHeader.(StoreHeader),
 	}
 	storer.(Storer).SetPipeline(p)
 

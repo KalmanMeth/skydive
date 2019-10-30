@@ -15,18 +15,23 @@
  *
  */
 
-package main
+package core
 
 import (
-	"github.com/skydive-project/skydive/contrib/exporters/core"
-	"github.com/skydive-project/skydive/contrib/exporters/vpclogs/mod"
+	"time"
+
+	"github.com/spf13/viper"
 )
 
-func main() {
-	core.Main("/etc/skydive/vpclogs.yml")
+type storeHeaderNone struct {
 }
 
-func init() {
-	core.TransformerHandlers.Register("vpclogs", mod.NewTransform, false)
-	core.StoreHeaderHandlers.Register("vpclogs", mod.NewStoreHeaderVpc, false)
+// Transform transforms a flow before being stored
+func (s *storeHeaderNone) AddStoreHeader(flows []interface{}, startTime time.Time, endTime time.Time) interface{} {
+	return flows
+}
+
+// NewTransformNone create a new transform
+func NewStoreHeaderNone(cfg *viper.Viper) (interface{}, error) {
+	return &storeHeaderNone{}, nil
 }
